@@ -9,7 +9,9 @@ $pageHeader = 'Approved Solicitation Requests';
 $pageSubtitle = 'Manage approved drives, track student returned solicitation letters, and log collected funds.';
 
 require_once __DIR__ . '/../config/auth.php';
+require_once __DIR__ . '/../includes/students.php';
 require_login('admin');
+ensure_student_columns($pdo);
 
 // Handle adding/editing a return record
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -33,9 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($requestId > 0 && $studentName !== '' && $chk->fetch()) {
             $stmt = $pdo->prepare("INSERT INTO solicitation_returns
-                (request_id, student_name, student_id, papers_returned, date_returned, amount_collected, receipt_no, remarks, audit_status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$requestId, $studentName, $studentId, $papersRet, $dateRet, $amount, $receiptNo, $remarks, $auditStatus]);
+                (request_id, control_no, student_name, student_id, papers_returned, date_returned, amount_collected, receipt_no, remarks, audit_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$requestId, next_student_control_no($pdo, $requestId), $studentName, $studentId, $papersRet, $dateRet, $amount, $receiptNo, $remarks, $auditStatus]);
             set_flash('success', 'Return record added successfully.');
         } else {
             set_flash('danger', 'Could not add the record. Check the student name and that the request is approved.');
@@ -67,7 +69,7 @@ $stmt = $pdo->query("SELECT r.*, o.org_name, o.acronym, o.president, o.adviser, 
 $approvedRequests = $stmt->fetchAll();
 
 // Fetch returns grouped by request_id
-$retStmt = $pdo->query("SELECT ret.*, r.control_no, r.event_name, o.acronym 
+$retStmt = $pdo->query("SELECT ret.*, r.control_no AS request_control_no, r.event_name, o.acronym 
                         FROM solicitation_returns ret 
                         JOIN solicitation_requests r ON ret.request_id = r.id 
                         JOIN organizations o ON r.org_id = o.id
@@ -136,7 +138,7 @@ foreach ($allReturns as $r) {
         <div class="card-body" style="padding:18px 24px 10px;">
             <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:0.88rem; margin-bottom:14px;">
                 <span><strong>Event:</strong> <?= htmlspecialchars($req['event_name']) ?></span>
-                <span><strong>Target:</strong> PHP <?= number_format($req['target_amount'],2) ?></span>
+                <span><strong>Tentative Amount:</strong> PHP <?= number_format($req['target_amount'],2) ?></span>
                 <span><strong>Approved by:</strong> <?= htmlspecialchars($req['approved_by'] ?? 'N/A') ?></span>
                 <span><strong>Approved at:</strong> <?= htmlspecialchars($req['approved_at'] ?? 'N/A') ?></span>
             </div>
@@ -155,10 +157,12 @@ foreach ($allReturns as $r) {
                     <thead>
                         <tr>
                             <th>Student Solicitor</th>
+                            <th>Tentative Amount</th>
                             <th>Papers Returned?</th>
                             <th>Date Returned</th>
                             <th>Amount Collected</th>
                             <th>Receipt No.</th>
+                            <th>Photo Proof</th>
                             <th>Audit Status</th>
                             <th>Remarks</th>
                             <th style="text-align:right;">Action</th>
@@ -170,7 +174,9 @@ foreach ($allReturns as $r) {
                             <td>
                                 <strong><?= htmlspecialchars($ret['student_name']) ?></strong><br>
                                 <small style="color:var(--text-muted);"><?= htmlspecialchars($ret['student_id'] ?? 'N/A') ?></small>
+                                <?php if (!empty($ret['control_no'])): ?><br><span class="control-pill" style="font-size:.72rem;"><?= htmlspecialchars($ret['control_no']) ?></span><?php endif; ?>
                             </td>
+                            <td>PHP <?= number_format((float)($ret['target_amount'] ?? 0), 2) ?></td>
                             <td>
                                 <?php if ($ret['papers_returned'] === 'yes'): ?>
                                     <span class="badge badge-approved"><i class="fa-solid fa-check"></i> Yes</span>
@@ -181,6 +187,11 @@ foreach ($allReturns as $r) {
                             <td><?= htmlspecialchars($ret['date_returned'] ?? '—') ?></td>
                             <td><strong style="color:var(--forest-green);">PHP <?= number_format($ret['amount_collected'],2) ?></strong></td>
                             <td><?= htmlspecialchars($ret['receipt_no'] ?? '—') ?></td>
+                            <td>
+                                <?php if (!empty($ret['proof_photo'])): $pu = '../assets/uploads/return_proofs/' . rawurlencode(basename($ret['proof_photo'])); ?>
+                                    <a href="<?= htmlspecialchars($pu) ?>" target="_blank" title="Open photo"><img src="<?= htmlspecialchars($pu) ?>" alt="Proof" style="width:48px; height:48px; object-fit:cover; border-radius:6px; border:1px solid var(--border-color);"></a>
+                                <?php else: ?>—<?php endif; ?>
+                            </td>
                             <td>
                                 <?php
                                 $as = $ret['audit_status'];
@@ -228,7 +239,7 @@ foreach ($allReturns as $r) {
                     </div>
                     <div class="form-col form-group">
                         <label class="form-label">Student ID</label>
-                        <input type="text" name="student_id" class="form-control" placeholder="e.g. 2022-10042">
+                        <input type="text" name="student_id" class="form-control" placeholder="e.g. 20-0001">
                     </div>
                 </div>
                 <div class="form-row">

@@ -40,7 +40,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <th>Control No</th>
                         <th>Organization</th>
                         <th>Event / Purpose</th>
-                        <th>Target Amount</th>
+                        <th>Tentative Amount</th>
                         <th>Dates</th>
                         <th>Denied By</th>
                         <th>Denial Reason</th>

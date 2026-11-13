@@ -9,9 +9,11 @@ CREATE TABLE organizations (
   acronym VARCHAR(20) NOT NULL,
   adviser VARCHAR(120) NOT NULL,
   president VARCHAR(120) NOT NULL,
+  student_id VARCHAR(50) NOT NULL,
   email VARCHAR(120) NOT NULL,
   contact_no VARCHAR(30) NOT NULL,
   logo VARCHAR(255) NULL DEFAULT NULL,         -- file name only; file lives in assets/uploads/org_logos/
+  course_year_sec VARCHAR(100) NULL DEFAULT NULL, -- chairman's course, year & section (set on the Org Profile page)
   status ENUM('active','inactive') NOT NULL DEFAULT 'active',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -54,6 +56,10 @@ CREATE TABLE solicitation_returns (
   receipt_no VARCHAR(50) NULL,
   remarks TEXT NULL,
   audit_status ENUM('pending_audit','audited','discrepancy') NOT NULL DEFAULT 'pending_audit',
+  control_no VARCHAR(40) NULL,                          -- control no. of the student, e.g. SOL-2026-0003-01
+  year_section VARCHAR(50) NULL,                       -- student's year & section (added by the org)
+  target_amount DECIMAL(12,2) NOT NULL DEFAULT 0,      -- tentative amount assigned to the student
+  proof_photo VARCHAR(255) NULL,                       -- photo proof file name (assets/uploads/return_proofs/)
   FOREIGN KEY (request_id) REFERENCES solicitation_requests(id) ON DELETE CASCADE
 );
 
@@ -104,8 +110,7 @@ CREATE TABLE notifications (       -- approve / deny updates shown to the organi
   message TEXT NOT NULL,
   is_read TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_org_read (org_id, is_read),
-  FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE
+  INDEX idx_org_read (org_id, is_read)
 );
 
 -- ---------------------------------------------------------------------------
@@ -115,6 +120,12 @@ CREATE TABLE notifications (       -- approve / deny updates shown to the organi
 --
 --   ALTER TABLE organizations DROP COLUMN department;
 --   ALTER TABLE organizations ADD COLUMN logo VARCHAR(255) NULL DEFAULT NULL AFTER contact_no;
+--   ALTER TABLE organizations ADD COLUMN course_year_sec VARCHAR(100) NULL DEFAULT NULL;
+--
+--   ALTER TABLE solicitation_returns ADD COLUMN control_no VARCHAR(40) NULL,
+--     ADD COLUMN year_section VARCHAR(50) NULL,
+--     ADD COLUMN target_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+--     ADD COLUMN proof_photo VARCHAR(255) NULL;
 --
 --   CREATE TABLE IF NOT EXISTS notifications ( ...same definition as above... );
 -- ---------------------------------------------------------------------------

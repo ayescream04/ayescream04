@@ -1,10 +1,11 @@
 <?php
 /** ORG Portal: Approved requests + solicitation letter DOCX */
-$pageTitle = 'Approved & DOCX';
+$pageTitle = 'Approved Drives';
 $pageHeader = 'Approved Solicitations';
-$pageSubtitle = 'Preview and download the official solicitation letter for each approved drive.';
+$pageSubtitle = 'List the students who will be given a letter, create their letters and record their returns.';
 
 require_once __DIR__ . '/../config/auth.php';
+require_once __DIR__ . '/../includes/students.php';
 require_login('org');
 $orgId = (int) current_user()['org_id'];
 if (!$orgId) { session_destroy(); header('Location: ../login.php'); exit; }
@@ -16,7 +17,11 @@ try {
     }
 } catch (PDOException $e) { /* ignore */ }
 
-$stmt = $pdo->prepare("SELECT r.*, o.org_name, o.acronym, o.president, o.adviser, o.email, o.logo AS org_logo
+ensure_student_columns($pdo);
+
+$stmt = $pdo->prepare("SELECT r.*, o.org_name, o.acronym, o.president, o.adviser, o.email, o.logo AS org_logo,
+                       (SELECT COUNT(*) FROM solicitation_returns x WHERE x.request_id = r.id) AS students_listed,
+                       (SELECT COALESCE(SUM(x.target_amount),0) FROM solicitation_returns x WHERE x.request_id = r.id) AS students_amount
                        FROM solicitation_requests r JOIN organizations o ON r.org_id = o.id
                        WHERE r.org_id = ? AND r.status = 'approved' ORDER BY r.approved_at DESC");
 $stmt->execute([$orgId]);
@@ -28,20 +33,21 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="card-header"><div class="card-title"><i class="fa-solid fa-file-invoice-dollar" style="color:var(--royal-green);"></i> Approved Drives (<?= count($rows) ?>)</div></div>
     <div class="card-body" style="padding:0;"><div class="table-responsive">
         <table class="custom-table">
-            <thead><tr><th>Control No</th><th>Event</th><th>Target</th><th>Approved By</th><th>Remarks</th><th style="text-align:right;">Letter</th></tr></thead>
+            <thead><tr><th>Control No</th><th>Event</th><th>Tentative Amount</th><th>Students</th><th>Approved By</th><th>Remarks</th><th style="text-align:right;">Action</th></tr></thead>
             <tbody>
-            <?php if (!$rows): ?><tr><td colspan="6" class="empty-cell">No approved requests yet.</td></tr>
+            <?php if (!$rows): ?><tr><td colspan="7" class="empty-cell">No approved requests yet.</td></tr>
             <?php else: foreach ($rows as $r): ?>
                 <tr>
                     <td><span class="control-pill"><?= htmlspecialchars($r['control_no']) ?></span></td>
                     <td><strong><?= htmlspecialchars($r['event_name']) ?></strong></td>
                     <td>PHP <?= number_format($r['target_amount'], 2) ?></td>
+                    <td><?= (int)$r['students_listed'] ?> listed<br><small style="color:var(--text-muted);">Assigned: PHP <?= number_format((float)$r['students_amount'], 2) ?></small></td>
                     <td><?= htmlspecialchars($r['approved_by'] ?? 'N/A') ?><br><small style="color:var(--text-muted);"><?= htmlspecialchars($r['approved_at'] ?? '') ?></small></td>
                     <td style="max-width:260px; font-size:.85rem;"><?= htmlspecialchars($r['admin_remarks'] ?? '—') ?></td>
                     <td style="text-align:right;">
-                        <button type="button" class="btn btn-sm btn-blue" onclick="openSolicitationLetterModal(<?= htmlspecialchars(json_encode($r), ENT_QUOTES, 'UTF-8') ?>)">
-                            <i class="fa-solid fa-file-word"></i> View / Download DOCX
-                        </button>
+                        <a class="btn btn-sm btn-blue" href="students.php?request=<?= (int)$r['id'] ?>">
+                            <i class="fa-solid fa-user-graduate"></i> Students &amp; Letters
+                        </a>
                     </td>
                 </tr>
             <?php endforeach; endif; ?>

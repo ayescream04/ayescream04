@@ -24,7 +24,7 @@ require_once __DIR__ . '/../includes/header.php';
         <a href="create_request.php" class="btn btn-sm btn-primary"><i class="fa-solid fa-plus"></i> New Request</a></div>
     <div class="card-body" style="padding:0;"><div class="table-responsive">
         <table class="custom-table">
-            <thead><tr><th>Control No</th><th>Event</th><th>Target</th><th>Requested</th><th>Needed</th></tr></thead>
+            <thead><tr><th>Control No</th><th>Event</th><th>Tentative Amount</th><th>Requested</th><th>Needed</th></tr></thead>
             <tbody>
             <?php if (!$rows): ?><tr><td colspan="5" class="empty-cell">No pending requests.</td></tr>
             <?php else: foreach ($rows as $r): ?>

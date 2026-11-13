@@ -35,10 +35,14 @@ try {
         $pdo->exec("ALTER TABLE org_members ADD COLUMN department VARCHAR(50) NOT NULL DEFAULT '' AFTER name");
     }
 
-    // Auto-migrate: logo column on organizations (stores only the file name)
+    // Auto-migrate: logo + course_year_sec columns on organizations
     $colLogo = $pdo->query("SHOW COLUMNS FROM organizations LIKE 'logo'")->fetch();
     if (!$colLogo) {
         $pdo->exec("ALTER TABLE organizations ADD COLUMN logo VARCHAR(255) NULL DEFAULT NULL");
+    }
+    $colCourse = $pdo->query("SHOW COLUMNS FROM organizations LIKE 'course_year_sec'")->fetch();
+    if (!$colCourse) {
+        $pdo->exec("ALTER TABLE organizations ADD COLUMN course_year_sec VARCHAR(100) NULL DEFAULT NULL");
     }
 } catch (PDOException $e) { /* surfaced by the queries below if it really failed */ }
 
@@ -47,14 +51,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'update_profile') {
-        $email   = trim($_POST['email'] ?? '');
-        $contact = trim($_POST['contact_no'] ?? '');
+        $chairman = trim($_POST['chairman'] ?? '');
+        $student_id = trim($_POST['student_id'] ?? '');
+        $course   = trim($_POST['course_year_sec'] ?? '');
+        $email    = trim($_POST['email'] ?? '');
+        $contact  = trim($_POST['contact_no'] ?? '');
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $contact === '') {
-            set_flash('danger', 'Enter a valid email and contact number.');
+        if ($chairman === '' || $course === '') {
+            set_flash('danger', 'Chairman name and course, year & section are required.');
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || $contact === '') {
+            set_flash('danger', 'Enter a valid Gmail address and contact number.');
         } else {
-            $pdo->prepare("UPDATE organizations SET email = ?, contact_no = ? WHERE id = ?")
-                ->execute([$email, $contact, $orgId]);
+            $pdo->prepare("UPDATE organizations SET president = ?, student_id =?, course_year_sec = ?, email = ?, contact_no = ? WHERE id = ?")
+                ->execute([$chairman, $student_id, $course, $email, $contact, $orgId]);
             set_flash('success', 'Profile details updated.');
         }
 
@@ -168,7 +177,8 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="badge badge-<?= $org['status'] === 'active' ? 'active' : 'inactive' ?>"><?= htmlspecialchars($org['status']) ?></span>
         </div>
         <div class="card-body">
-            <p><strong>President:</strong> <?= htmlspecialchars($org['president']) ?></p>
+            <p><strong>Chairman:</strong> <?= htmlspecialchars($org['president']) ?></p>
+            <p><strong>Course, Year &amp; Section:</strong> <?= htmlspecialchars($org['course_year_sec'] ?? '') ?: '—' ?></p>
             <p><strong>Org Student ID:</strong> <?= htmlspecialchars($org['student_id'] ?? 'N/A') ?></p>
             <p><strong>Adviser:</strong> <?= htmlspecialchars($org['adviser']) ?></p>
             <p><strong>Registered:</strong> <?= htmlspecialchars($org['created_at']) ?></p>
@@ -201,8 +211,23 @@ require_once __DIR__ . '/../includes/header.php';
                 <input type="hidden" name="action" value="update_profile">
                 
                 <div class="form-group">
-                    <label class="form-label required">Email</label>
-                    <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($org['email']) ?>">
+                    <label class="form-label required">Chairman Name</label>
+                    <input type="text" name="chairman" class="form-control" required maxlength="120" value="<?= htmlspecialchars($org['president']) ?>" placeholder="Full name of the chairman">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label required">Student ID</label>
+                    <input type="text" name="student_id" class="form-control" required maxlength="50" value="<?= htmlspecialchars($org['student_id']) ?>" placeholder="e.g. 22-1475">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label required">Course, Year &amp; Section</label>
+                    <input type="text" name="course_year_sec" class="form-control" required maxlength="100" value="<?= htmlspecialchars($org['course_year_sec'] ?? '') ?>" placeholder="e.g. BSIS 3-A">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label required">Gmail</label>
+                    <input type="email" name="email" class="form-control" required value="<?= htmlspecialchars($org['email']) ?>" placeholder="e.g. yourorg@gmail.com">
                 </div>
                 
                 <div class="form-group">

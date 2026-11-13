@@ -33,7 +33,7 @@ function notify_request_decision($pdo, int $requestId, string $status, string $a
     if ($status === 'approved') {
         $title   = 'Request approved: ' . $req['control_no'];
         $message = 'Your solicitation request "' . $req['event_name'] . '" (' . $req['control_no'] . ') was APPROVED by ' . $approver
-                 . '. You can now view and download the solicitation letter under Approved & DOCX.'
+                 . '. You can now list your student solicitors and create their solicitation letters under Student Records.'
                  . ($remarks !== '' ? ' Remarks: ' . $remarks : '');
     } else {
         $title   = 'Request denied: ' . $req['control_no'];

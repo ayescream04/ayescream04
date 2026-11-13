@@ -157,7 +157,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div class="card-body" style="padding:14px 20px;">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85rem; margin-bottom:14px;">
-                <div><strong>President:</strong> <?= htmlspecialchars($org['president']) ?></div>
+                <div><strong>Chairman:</strong> <?= htmlspecialchars($org['president']) ?></div>
                 <div><strong>Adviser:</strong> <?= htmlspecialchars($org['adviser']) ?></div>
                 <div><strong>Email:</strong> <?= htmlspecialchars($org['email']) ?></div>
                 <div><strong>Contact:</strong> <?= htmlspecialchars($org['contact_no']) ?></div>
@@ -233,7 +233,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div class="form-row">
                     <div class="form-col form-group">
-                        <label class="form-label required">President / Representative</label>
+                        <label class="form-label required">Chairman / Representative</label>
                         <input type="text" name="president" class="form-control" required placeholder="Full name">
                     </div>
                     <div class="form-col form-group">
@@ -301,7 +301,8 @@ function openOrgProfile(org) {
             </div>
         </div>
         <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-            ${row('President', org.president)}
+            ${row('Chairman', org.president)}
+            ${org.course_year_sec ? row('Course, Year & Section', org.course_year_sec) : ''}
             ${row('Adviser', org.adviser)}
             ${row('Email', org.email)}
             ${row('Contact', org.contact_no)}

@@ -101,8 +101,8 @@ require_once __DIR__ . '/../includes/header.php';
             <a href="create_request.php" class="btn btn-lime">
                 <i class="fa-solid fa-circle-plus"></i> New Solicitation
             </a>
-            <a href="approved.php" class="btn btn-blue">
-                <i class="fa-solid fa-file-word"></i> Download DOCX
+            <a href="students.php" class="btn btn-blue">
+                <i class="fa-solid fa-user-graduate"></i> Student Records
             </a>
         </div>
     </div>
@@ -144,7 +144,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <tr>
                         <th>Control No</th>
                         <th>Event</th>
-                        <th>Target Amount</th>
+                        <th>Tentative Amount</th>
                         <th>Date Requested</th>
                         <th>Date Needed</th>
                         <th>Status</th>
@@ -168,8 +168,8 @@ require_once __DIR__ . '/../includes/header.php';
                             <td><span class="badge badge-<?= htmlspecialchars($req['status']) ?>"><?= htmlspecialchars(ucfirst($req['status'])) ?></span></td>
                             <td style="text-align:right;">
                                 <?php if ($req['status'] === 'approved'): ?>
-                                <a href="approved.php" class="btn btn-sm btn-blue">
-                                    <i class="fa-solid fa-file-word"></i> View DOCX
+                                <a href="students.php?request=<?= (int)$req['id'] ?>" class="btn btn-sm btn-blue">
+                                    <i class="fa-solid fa-user-graduate"></i> Students &amp; Letters
                                 </a>
                                 <?php else: ?>
                                 <span style="font-size:0.8rem; color:var(--text-muted);">

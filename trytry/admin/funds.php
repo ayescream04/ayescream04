@@ -223,7 +223,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <tr>
                         <th>Control No</th>
                         <th>Event</th>
-                        <th>Target Amount</th>
+                        <th>Tentative Amount</th>
                         <th>Audited Amount</th>
                         <th>Audit Status</th>
                         <th>Audited By</th>

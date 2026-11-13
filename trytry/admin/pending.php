@@ -1,12 +1,12 @@
 <?php
 /**
  * Admin: View Pending Requests
- * Fill solicitation letter docx and update pending request status: approve/deny
+ * Review pending requests and approve or deny (no letter is created at approval)
  */
 
 $pageTitle = 'Pending Solicitation Requests';
 $pageHeader = 'Pending Solicitation Requests';
-$pageSubtitle = 'Review incoming student organization solicitation drives, customize letter clauses, and approve or deny.';
+$pageSubtitle = 'Review incoming student organization solicitation drives and approve or deny.';
 
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../includes/notifications.php';
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->rowCount() === 0) {
                 set_flash('danger', 'This request was already processed or no longer exists.');
             } elseif ($action === 'approve') {
-                set_flash('success', 'Solicitation request APPROVED. The official DOCX solicitation letter is now authorized.');
+                set_flash('success', 'Solicitation request APPROVED. The organization can now list its student solicitors and create their letters.');
             } else {
                 set_flash('danger', 'Solicitation request has been DENIED.');
             }
@@ -87,7 +87,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <th>Control No</th>
                         <th>Organization</th>
                         <th>Event & Purpose</th>
-                        <th>Target Amount</th>
+                        <th>Tentative Amount</th>
                         <th>Dates</th>
                         <th style="text-align: right;">Action</th>
                     </tr>
@@ -108,7 +108,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 </td>
                                 <td>
                                     <strong><?= htmlspecialchars($req['org_name']) ?></strong><br>
-                                    <small style="color: var(--text-muted);">Pres: <?= htmlspecialchars($req['president']) ?></small>
+                                    <small style="color: var(--text-muted);">Chairman: <?= htmlspecialchars($req['president']) ?></small>
                                 </td>
                                 <td style="max-width: 320px;">
                                     <strong><?= htmlspecialchars($req['event_name']) ?></strong>
@@ -129,7 +129,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 </td>
                                 <td style="text-align: right; white-space: nowrap;">
                                     <button type="button" class="btn btn-sm btn-primary" onclick="openReviewModal(<?= htmlspecialchars(json_encode($req), ENT_QUOTES, 'UTF-8') ?>)">
-                                        <i class="fa-solid fa-file-pen"></i> Fill Letter DOCX & Decide
+                                        <i class="fa-solid fa-file-pen"></i> Review & Decide
                                     </button>
                                 </td>
                             </tr>
@@ -141,11 +141,11 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<!-- Modal: Fill Solicitation Letter DOCX and Approve / Deny -->
+<!-- Modal: Review request and Approve / Deny -->
 <div id="reviewModal" class="modal-overlay">
     <div class="modal-box modal-lg">
         <div class="modal-header">
-            <h3><i class="fa-solid fa-file-signature" style="color: var(--royal-green);"></i> Review & Fill Solicitation Letter DOCX</h3>
+            <h3><i class="fa-solid fa-file-signature" style="color: var(--royal-green);"></i> Review Solicitation Request</h3>
             <button type="button" class="modal-close" onclick="closeModal('reviewModal')">&times;</button>
         </div>
 
@@ -166,40 +166,25 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="form-row" style="font-size: 0.88rem;">
                         <div class="form-col"><strong>Event:</strong> <span id="modalEventName"></span></div>
-                        <div class="form-col"><strong>Target Amount:</strong> <span id="modalTargetAmount"></span></div>
+                        <div class="form-col"><strong>Tentative Amount:</strong> <span id="modalTargetAmount"></span></div>
                         <div class="form-col"><strong>Date Needed:</strong> <span id="modalDateNeeded"></span></div>
                     </div>
                 </div>
 
                 <h4 style="font-size: 0.95rem; color: var(--forest-green); margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
-                    <i class="fa-solid fa-pen-fancy"></i> Solicitation Letter Parameters & Document Details
+                    <i class="fa-solid fa-pen-fancy"></i> Decision Details
                 </h4>
 
                 <div class="form-row">
                     <div class="form-col form-group">
-                        <label class="form-label required">Approving Authority / Dean Name</label>
+                        <label class="form-label required">Approved / Decided by</label>
                         <input type="text" name="approver_name" id="modalApproverName" class="form-control" value="Dean of Student Affairs" required>
-                    </div>
-                    <div class="form-col form-group">
-                        <label class="form-label">Signatory Title</label>
-                        <input type="text" class="form-control" value="Director, Student Affairs & Services" readonly>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Review Remarks / Conditions / Instructions for Letter</label>
+                    <label class="form-label">Review Remarks / Conditions</label>
                     <textarea name="admin_remarks" id="modalAdminRemarks" class="form-control" placeholder="Specify any institutional conditions, approved quota, or reasons for approval/denial..."></textarea>
-                </div>
-
-                <!-- Live DOCX Preview Trigger -->
-                <div style="background: #eaf3ff; border: 1px solid #b8daff; border-radius: 6px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
-                    <div>
-                        <strong style="color: #004085;"><i class="fa-solid fa-file-word"></i> Official Letter Preview:</strong>
-                        <p style="font-size: 0.8rem; color: #004085; margin: 0;">Preview or verify the formal solicitation letter docx before confirming your decision.</p>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-blue" onclick="previewLetterFromModal()">
-                        <i class="fa-solid fa-eye"></i> Preview Letter DOCX
-                    </button>
                 </div>
             </div>
 
@@ -211,7 +196,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <div style="display: flex; gap: 10px;">
                     <button type="button" class="btn btn-outline-primary" onclick="closeModal('reviewModal')">Cancel</button>
                     <button type="button" class="btn btn-primary" onclick="submitDecision('approve')">
-                        <i class="fa-solid fa-check-circle"></i> Approve Request & Authorize Letter
+                        <i class="fa-solid fa-check-circle"></i> Approve Request
                     </button>
                 </div>
             </div>
@@ -235,19 +220,6 @@ function openReviewModal(req) {
     openModal('reviewModal');
 }
 
-function previewLetterFromModal() {
-    if (!currentSelectedReq) return;
-    
-    // Merge latest modal input values
-    const letterData = {
-        ...currentSelectedReq,
-        approved_by: document.getElementById('modalApproverName').value,
-        admin_remarks: document.getElementById('modalAdminRemarks').value
-    };
-    
-    openSolicitationLetterModal(letterData);
-}
-
 function submitDecision(action) {
     document.getElementById('modalAction').value = action;
     const remarks = document.getElementById('modalAdminRemarks').value.trim();
@@ -262,7 +234,7 @@ function submitDecision(action) {
             document.getElementById('reviewForm').submit();
         }
     } else {
-        if (confirm('Authorize and APPROVE this solicitation request? Official solicitation documents will be unlocked for the organization.')) {
+        if (confirm('Approve this solicitation request? The organization will be able to list its student solicitors and create their letters.')) {
             document.getElementById('reviewForm').submit();
         }
     }

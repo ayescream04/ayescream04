@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($old['event_name'] === '') { $errors[] = 'Event name is required.'; }
     if ($old['purpose'] === '')    { $errors[] = 'Purpose is required.'; }
-    if (!is_numeric($old['target_amount']) || (float)$old['target_amount'] <= 0) { $errors[] = 'Target amount must be greater than zero.'; }
+    if (!is_numeric($old['target_amount']) || (float)$old['target_amount'] <= 0) { $errors[] = 'Tentative amount must be greater than zero.'; }
     $d = DateTime::createFromFormat('Y-m-d', $old['date_needed']);
     if (!$d || $d->format('Y-m-d') !== $old['date_needed']) {
         $errors[] = 'Please choose a valid date needed.';
@@ -67,7 +67,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <div class="form-row">
                 <div class="form-col form-group">
-                    <label class="form-label required" for="target_amount">Target Amount (PHP)</label>
+                    <label class="form-label required" for="target_amount">Tentative Amount (PHP)</label>
                     <input type="number" id="target_amount" name="target_amount" class="form-control" step="0.01" min="1" required value="<?= htmlspecialchars($old['target_amount']) ?>">
                 </div>
                 <div class="form-col form-group">

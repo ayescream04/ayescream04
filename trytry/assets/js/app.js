@@ -63,28 +63,46 @@ function getOrgLogoUrl(req) {
     return ORG_LOGO_DIR + v;
 }
 
-function letterParagraphs(r) {
+function letterParagraphs(r, stu) {
     var amount = 'PHP ' + Number(r.target_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 });
     return {
         date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-        control: r.control_no || '',
+        control: stu ? (stu.control_no || ((r.control_no || '') + '-S' + String(stu.id || '').padStart(3, '0'))) : (r.control_no || ''),
+        requestControl: stu ? (r.control_no || '') : '',
         salutation: 'To Whom It May Concern:',
-        body: [
+        letterNo: stu ? (stu.control_no || ((r.control_no || '') + '-S' + String(stu.id || '').padStart(3, '0'))) : '',
+        solicitor: stu ? (stu.student_name || '') : '',
+        body: (stu ? [
+            'Greetings from ' + (r.org_name || '') + (r.acronym ? ' (' + r.acronym + ')' : '') + '!',
+            'The organization is conducting "' + (r.event_name || '') + '" on or before ' + (r.date_needed || '') +
+                '. Purpose: ' + (r.purpose || '') + '.',
+            'This letter introduces ' + (stu.student_name || '') +
+                (stu.student_id ? ' (Student ID: ' + stu.student_id + ')' : '') +
+                (stu.year_section ? ', ' + stu.year_section : '') +
+                ', a listed solicitor of the organization, who is authorized to request donations in cash or in kind on its behalf for this activity.' +
+                (Number(stu.target_amount) > 0
+                    ? ' The tentative amount to be raised by the student is PHP ' + Number(stu.target_amount).toLocaleString('en-US', { minimumFractionDigits: 2 }) +
+                      ', as part of the organization\'s overall tentative amount of ' + amount + '.'
+                    : ''),
+            'We respectfully ask for your kind support. ' +
+                'This solicitation is authorized by the Office of Student Affairs (Request Control No. ' + (r.control_no || '') + ').',
+            (r.admin_remarks ? 'Conditions: ' + r.admin_remarks : '')
+        ] : [
             'Greetings from ' + (r.org_name || '') + (r.acronym ? ' (' + r.acronym + ')' : '') + '!',
             'The organization is conducting "' + (r.event_name || '') + '" on or before ' + (r.date_needed || '') +
                 '. Purpose: ' + (r.purpose || '') + '. The organization aims to raise ' + amount + ' for this activity.',
             'In this regard, we respectfully ask for your kind support through a donation in cash or in kind. ' +
                 'This solicitation is authorized by the Office of Student Affairs (Control No. ' + (r.control_no || '') + ').',
             (r.admin_remarks ? 'Conditions: ' + r.admin_remarks : '')
-        ].filter(Boolean),
+        ]).filter(Boolean),
         closing: 'Thank you very much for your generosity and support.',
-        president: r.president || '', adviser: r.adviser || '',
+        president: r.president || '', chairmanCourse: r.course_year_sec || '', adviser: r.adviser || '',
         approver: r.approved_by || 'Office of Student Affairs'
     };
 }
 
-function openSolicitationLetterModal(req) {
-    var L = letterParagraphs(req);
+function openSolicitationLetterModal(req, stu) {
+    var L = letterParagraphs(req, stu);
     var m = document.getElementById('letterModal');
     if (!m) {
         m = document.createElement('div');
@@ -93,6 +111,7 @@ function openSolicitationLetterModal(req) {
         document.body.appendChild(m);
     }
     window._currentLetterReq = req;
+    window._currentLetterStudent = stu || null;
 
     // Fallbacks for logo paths
     var schoolLogoSrc = SCHOOL_LOGO_URL;
@@ -122,18 +141,19 @@ function openSolicitationLetterModal(req) {
         '</table>' +
 
         '<div style="font-family:\'Times New Roman\', serif; font-size:12pt; line-height:1.6; color:#000;">' +
-        '  <p>' + L.date + '<br>Control No: ' + L.control + '</p>' +
+        '  <p>' + L.date + '<br>Control No: ' + L.control + (L.requestControl ? '<br>Request Control No: ' + L.requestControl : '') + '</p>' +
         '  <p><strong>' + L.salutation + '</strong></p>' +
         L.body.map(function (p) { return '<p style="text-align:justify; text-indent:40px;">' + p + '</p>'; }).join('') +
         '  <p>' + L.closing + '</p><br>' +
-        '  <p>Respectfully yours,<br><br><strong>' + L.president + '</strong><br>President, ' + (req.org_name || '') + '</p>' +
+        '  <p>Respectfully yours,<br><br><strong>' + L.president + '</strong><br>' + (L.chairmanCourse ? L.chairmanCourse + '<br>' : '') + 'Chairman, ' + (req.org_name || '') + '</p>' +
         '  <p>Noted by:<br><br><strong>' + L.adviser + '</strong><br>Adviser</p>' +
+        (L.solicitor ? '  <p>Authorized solicitor:<br><br><strong>' + L.solicitor + '</strong><br>Student</p>' : '') +
         '  <p>Approved by:<br><br><strong>' + L.approver + '</strong></p>' +
         '</div>' +
 
         '</div></div>' +
         '<div class="modal-footer"><button type="button" class="btn btn-outline-primary" onclick="closeModal(\'letterModal\')">Close</button>' +
-        '<button type="button" class="btn btn-primary" onclick="downloadSolicitationDocx(window._currentLetterReq)"><i class="fa-solid fa-download"></i> Download DOCX</button></div>' +
+        '<button type="button" class="btn btn-primary" onclick="downloadSolicitationDocx(window._currentLetterReq, window._currentLetterStudent)"><i class="fa-solid fa-download"></i> Download DOCX</button></div>' +
         '</div>';
     
     openModal('letterModal');
@@ -172,11 +192,13 @@ async function fetchLogoForDocx(url, box) {
     } catch (e) { return null; }
 }
 
-async function downloadSolicitationDocx(req) {
+async function downloadSolicitationDocx(req, stu) {
     if (!req) { alert('No letter selected.'); return; }
     try {
         var d = await loadDocxLib();
-        var L = letterParagraphs(req);
+        // stu can be one student, a list of students (one page per student) or nothing (general letter)
+        var list = Array.isArray(stu) ? stu : [stu];
+        if (!list.length) { alert('There are no students listed yet.'); return; }
         var FONT = 'Times New Roman';
         var BOX = 80;
 
@@ -210,6 +232,8 @@ async function downloadSolicitationDocx(req) {
             });
         }
 
+        function buildChildren(s) {
+        var L = letterParagraphs(req, s);
         // Header: school logo | school name | org logo
         var header = new d.Table({
             width: { size: 9360, type: d.WidthType.DXA },
@@ -236,9 +260,10 @@ async function downloadSolicitationDocx(req) {
             header,
             para([run('')], { after: 200 }),
             para([run(L.date)], { after: 0 }),
-            para([run('Control No: ' + L.control)]),
-            para([run(L.salutation, { bold: true })])
+            para([run('Control No: ' + L.control)], { after: L.requestControl ? 0 : 200 })
         ];
+        if (L.requestControl) { children.push(para([run('Request Control No: ' + L.requestControl)])); }
+        children.push(para([run(L.salutation, { bold: true })]));
         L.body.forEach(function (p) {
             children.push(para([run(p)], { align: d.AlignmentType.JUSTIFIED, indent: true }));
         });
@@ -246,29 +271,45 @@ async function downloadSolicitationDocx(req) {
             para([run(L.closing)], { after: 400 }),
             para([run('Respectfully yours,')], { after: 500 }),
             para([run(L.president, { bold: true })], { after: 0 }),
-            para([run('President, ' + (req.org_name || ''))], { after: 300 }),
+            para([run((L.chairmanCourse ? L.chairmanCourse + ' — ' : '') + 'Chairman, ' + (req.org_name || ''))], { after: 300 }),
             para([run('Noted by:')], { after: 500 }),
             para([run(L.adviser, { bold: true })], { after: 0 }),
             para([run('Adviser')], { after: 300 }),
             para([run('Approved by:')], { after: 500 }),
             para([run(L.approver, { bold: true })], { after: 0 })
         );
+        if (L.solicitor) {
+            children.push(
+                para([run('')], { after: 200 }),
+                para([run('Authorized solicitor:')], { after: 500 }),
+                para([run(L.solicitor, { bold: true })], { after: 0 }),
+                para([run('Student')], { after: 0 })
+            );
+        }
+        return children;
+        }
 
+        // Each student gets a section of their own, so every letter starts on a new page
         var doc = new d.Document({
-            sections: [{
-                properties: { page: {
-                    size: { width: 12240, height: 15840 },
-                    margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
-                } },
-                children: children
-            }]
+            sections: list.map(function (s) {
+                return {
+                    properties: { page: {
+                        size: { width: 12240, height: 15840 },
+                        margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
+                    } },
+                    children: buildChildren(s)
+                };
+            })
         });
 
         var blob = await d.Packer.toBlob(doc);
         var a = document.createElement('a');
-        var safeName = String(req.control_no || 'letter').replace(/[^\w\-]+/g, '_');
+        var one = !Array.isArray(stu) ? letterParagraphs(req, stu) : null;
+        var safeName = String((one && one.letterNo) || req.control_no || 'letter').replace(/[^\w\-]+/g, '_');
         a.href = URL.createObjectURL(blob);
-        a.download = 'Solicitation_Letter_' + safeName + '.docx';
+        a.download = Array.isArray(stu)
+            ? 'Solicitation_Letters_' + safeName + '_all_students.docx'
+            : 'Solicitation_Letter_' + safeName + '.docx';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -284,6 +325,121 @@ async function downloadSolicitationDocx(req) {
 (function () {
     // Org pages live in /org/ ; the bell is added to the top bar, no changes to header.php needed.
     if (location.pathname.indexOf('/org/') === -1) { return; }
+
+    // Org profile popup (opened from the sidebar)
+    function showOrgProfile(org) {
+        var m = document.getElementById('orgProfileModal');
+        if (!m) {
+            m = document.createElement('div');
+            m.id = 'orgProfileModal';
+            m.className = 'modal-overlay';
+            document.body.appendChild(m);
+        }
+        function row(label, value) {
+            return '<tr><td style="padding:8px 0; color:var(--text-muted); width:38%; border-bottom:1px solid var(--border-color);">' + esc(label) +
+                   '</td><td style="padding:8px 0; font-weight:600; border-bottom:1px solid var(--border-color);">' + esc(value || '—') + '</td></tr>';
+        }
+        var avatar = org.logo
+            ? '<img src="../assets/uploads/org_logos/' + encodeURIComponent(org.logo) + '" alt="" style="width:72px; height:72px; border-radius:50%; object-fit:contain; background:#fff; border:3px solid var(--lemon-lime);">'
+            : '<div style="width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg,var(--royal-green),var(--lemon-lime)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.95rem;">' + esc((org.acronym || '').substring(0, 4)) + '</div>';
+
+        m.innerHTML =
+            '<div class="modal-box">' +
+            '<div class="modal-header"><h3><i class="fa-solid fa-id-card" style="color:var(--royal-green);"></i> Organization Profile</h3>' +
+            '<button type="button" class="modal-close" onclick="closeModal(\'orgProfileModal\')">&times;</button></div>' +
+            '<div class="modal-body">' +
+            '<div style="display:flex; align-items:center; gap:16px; margin-bottom:18px;">' + avatar +
+            '<div><h3 style="font-size:1.1rem; color:var(--forest-green); margin:0 0 4px;">' + esc(org.name) + '</h3>' +
+            '<span class="badge badge-' + (org.status === 'active' ? 'active' : 'inactive') + '">' + esc(org.status) + '</span></div></div>' +
+            '<table style="width:100%; border-collapse:collapse; font-size:.9rem;">' +
+            row('Acronym', org.acronym) + row('Chairman', org.president) + row('Course, Year & Section', org.course) + row('Adviser', org.adviser) +
+            row('Email', org.email) + row('Contact No.', org.contact) + row('Registered', org.since) +
+            '</table></div>' +
+            '<div class="modal-footer"><button type="button" class="btn btn-outline-primary" onclick="closeModal(\'orgProfileModal\')">Close</button>' +
+            '<a href="profile.php" class="btn btn-primary"><i class="fa-solid fa-pen-to-square"></i> Edit Profile &amp; Members</a></div>' +
+            '</div>';
+        openModal('orgProfileModal');
+    }
+
+    // Sidebar: show the organization (logo/acronym + clickable name) that opens the profile popup
+    function applyOrgSidebar(org) {
+        var box = document.querySelector('.sidebar-user');
+        if (!org || !box || box.getAttribute('data-org-profile')) { return; }
+        box.setAttribute('data-org-profile', '1');
+
+        var nameEl = box.querySelector('.user-name');
+        if (nameEl) {
+            nameEl.textContent = org.name;
+            nameEl.style.whiteSpace = 'normal';
+            nameEl.style.textDecoration = 'underline';
+            nameEl.style.textDecorationStyle = 'dotted';
+        }
+
+        var avatar = document.createElement('div');
+        avatar.style.cssText = 'width:42px; height:42px; flex-shrink:0; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--royal-green),var(--lemon-lime)); color:#fff; font-weight:800; font-size:.7rem; border:2px solid var(--lemon-lime);';
+        if (org.logo) {
+            avatar.style.background = '#fff';
+            avatar.innerHTML = '<img src="../assets/uploads/org_logos/' + encodeURIComponent(org.logo) + '" alt="" style="width:100%; height:100%; object-fit:contain;">';
+        } else {
+            avatar.textContent = (org.acronym || '').substring(0, 4);
+        }
+
+        var inner = document.createElement('div');
+        inner.style.cssText = 'min-width:0; flex:1;';
+        while (box.firstChild) { inner.appendChild(box.firstChild); }
+        box.appendChild(avatar);
+        box.appendChild(inner);
+
+        box.style.cssText += 'display:flex; align-items:center; gap:10px; cursor:pointer;';
+        box.title = 'Click to view organization profile';
+        box.setAttribute('role', 'button');
+        box.setAttribute('tabindex', '0');
+        function open() { showOrgProfile(org); }
+        box.addEventListener('click', open);
+        box.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    }
+
+    // Sidebar links for the org pages (added here so header.php does not need to change)
+    function addOrgNav() {
+        var nav = document.querySelector('.sidebar-nav');
+        if (!nav || nav.getAttribute('data-org-nav')) { return; }
+        nav.setAttribute('data-org-nav', '1');
+
+        var items = [
+            ['students.php', 'fa-user-graduate', 'Student Records'],
+            ['returns.php', 'fa-camera', 'Return Records'],
+            ['notifications.php', 'fa-bell', 'Notifications']
+        ];
+        var here = location.pathname.split('/').pop();
+        var existing = {};
+        var anchorLi = null;
+        nav.querySelectorAll('a').forEach(function (a) {
+            var h = (a.getAttribute('href') || '').split('/').pop();
+            existing[h] = true;
+            if (h === 'approved.php') { anchorLi = a.closest('li') || a; }
+        });
+        var parent = anchorLi ? anchorLi.parentNode : nav;
+        var ref = anchorLi ? anchorLi.nextSibling : null;
+
+        items.forEach(function (it) {
+            if (existing[it[0]]) { return; }
+            var a = document.createElement('a');
+            a.href = it[0];
+            a.innerHTML = '<i class="fa-solid ' + it[1] + '"></i> ' + it[2];
+            if (it[0] === here || (it[0] === 'students.php' && here === 'student.php')) { a.className = 'active'; }
+            if (it[0] === 'notifications.php') {
+                a.innerHTML += '<span class="nav-badge" id="navNotifBadge" style="display:none;">0</span>';
+            }
+            var el = a;
+            if (parent.tagName === 'UL' || parent.tagName === 'OL') { el = document.createElement('li'); el.appendChild(a); }
+            parent.insertBefore(el, ref);
+        });
+    }
+
+    function initOrgUi() {
+        addOrgNav();
+        initBell();
+    }
 
     function initBell() {
         var bar = document.querySelector('.top-navbar');
@@ -310,6 +466,8 @@ async function downloadSolicitationDocx(req) {
             var n = data.unread || 0;
             badge.textContent = n > 99 ? '99+' : n;
             badge.style.display = n > 0 ? 'inline-block' : 'none';
+            var nb = document.getElementById('navNotifBadge');
+            if (nb) { nb.textContent = n > 99 ? '99+' : n; nb.style.display = n > 0 ? 'inline-block' : 'none'; }
 
             var html = '<div style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-weight:700; color:var(--forest-green);">' +
                        '<i class="fa-solid fa-bell"></i> Notifications' + (n ? ' (' + n + ' new)' : '') + '</div>';
@@ -333,7 +491,7 @@ async function downloadSolicitationDocx(req) {
         function load() {
             fetch('notifications_api.php', { credentials: 'same-origin', cache: 'no-store' })
                 .then(function (r) { return r.ok ? r.json() : null; })
-                .then(function (d) { if (d) { render(d); } })
+                .then(function (d) { if (d) { render(d); applyOrgSidebar(d.org); } })
                 .catch(function () { /* bell stays empty */ });
         }
 
@@ -350,5 +508,5 @@ async function downloadSolicitationDocx(req) {
         setInterval(load, 60000);   // refresh every minute
     }
 
-    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initBell); } else { initBell(); }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initOrgUi); } else { initOrgUi(); }
 })();
